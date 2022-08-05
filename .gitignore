@@ -1,0 +1,19 @@
+# Virtual environments
+/.venv/
+
+# Secrets
+/app/config/config.py
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Dev environments
+/.idea/
+
+# Temporary files
+/.mypy_cache/
+
+# App data
+/data/
