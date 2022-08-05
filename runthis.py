@@ -10,11 +10,11 @@ import whois
 kernel32 = ctypes.windll.kernel32
 kernel32.SetConsoleMode(kernel32.GetStdHandle(-11), 7)
 
-SUFFIX = ".de"
+# Directory must exist, file doesn't have to.
+TLD = ".de"
 MIN_LENGTH = 1
 MAX_LENGTH = 5
-RESULT_FILE = "c:\\Temp\\whoisresult.txt"  # Directory must exist, file doesn't have to.
-
+RESULT_FILE = "c:\\Temp\\whoisresult.txt"  
 
 def main():
     characters = list(string.ascii_lowercase)
@@ -25,7 +25,7 @@ def main():
         for r in range(MIN_LENGTH, MAX_LENGTH):
             for name in itertools.product(
                 characters, repeat=r
-            ):  # from 'a.de' to 'zzzzz.de'
+            ):
                 url = "".join(name)
                 if url.startswith("-") or url.endswith("-"):
                     # Invalid name, skip
@@ -36,7 +36,7 @@ def main():
                     # Those are reserved for special character representations.
                     continue
 
-                url += SUFFIX
+                url += TLD
 
                 wait_seconds = 2
                 try:
