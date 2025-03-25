@@ -11,15 +11,15 @@ TLD = ".de"
 MIN_LENGTH = 1
 MAX_LENGTH = 5
 RESULT_FILE = "out/whoisresult.txt"
-MUST_INCLUDE_SEQUENCE = ""  # Arbitrary string that must be in the domain name
 WAIT_SECONDS = 2  # Initial wait time
 MAX_RETRIES = 5  # Maximum number of retry attempts
 
 # Character set configuration (set to True to include, False to exclude)
 USE_LOWERCASE = True  # Include lowercase letters (a-z)
-USE_DIGITS = True  # Include digits (0-9)
+USE_DIGITS = False  # Include digits (0-9)
 USE_HYPHEN = False  # Include hyphen (-)
-USE_CUSTOM_CHARS = ""  # Add any additional custom characters here
+USE_CUSTOM_CHARS = ""  # Add any additional custom characters here (IDN support)
+MUST_INCLUDE_SEQUENCE = ""  # Arbitrary string that must be in the domain name
 
 # Logging configuration
 logging.basicConfig(
@@ -95,9 +95,10 @@ def check_domain(url, log_file):
 
             res = whois.whois(url)
 
+            sys.stdout.write("\x1b[2K\r")  # Clear line
+
             if res.status is not None:
                 logging.info(f"{url} exists!")
-                sys.stdout.write("Exists!\n")
                 return  # Domain exists, end function
             else:
                 sys.stdout.write(f"Rate limit reached. Retrying in {wait_seconds}s\r")
@@ -108,20 +109,19 @@ def check_domain(url, log_file):
                 sys.stdout.write("\x1b[2K\r")  # Clear line
         except whois.parser.PywhoisError:
             logging.info(f"{url} is likely unregistered.")
-            sys.stdout.write("Unregistered!\n")
             print(url, file=log_file)
             log_file.flush()  # Ensure immediate write to file
             return  # Unregistered, end function
         except Exception as e:
             logging.error(f"An unexpected error occurred for {url}: {e}")
-            sys.stdout.write(f"Error: {str(e)[:50]}... Retrying in {wait_seconds}s\r")
+
+            sys.stdout.write(f"Error: {str(e)[:50]}... \r")
             retries += 1
             time.sleep(wait_seconds)
             wait_seconds *= 2
             sys.stdout.write("\x1b[2K\r")  # Clear line
 
     logging.error(f"Max retries reached for {url}. Skipping.")
-    sys.stdout.write("Max retries reached. Skipping.\n")
 
 
 def ensure_directory_exists(file_path):
@@ -134,10 +134,7 @@ def ensure_directory_exists(file_path):
 
 def validate_configuration():
     """Validate the configuration settings."""
-    if (
-        not any([USE_LOWERCASE, USE_DIGITS, USE_HYPHEN])
-        and not USE_CUSTOM_CHARS
-    ):
+    if not any([USE_LOWERCASE, USE_DIGITS, USE_HYPHEN]) and not USE_CUSTOM_CHARS:
         logging.error("Error: At least one character set must be enabled!")
         return False
 
@@ -152,6 +149,27 @@ def validate_configuration():
     # Simple TLD validation
     if not TLD.startswith("."):
         logging.warning("Warning: TLD should start with a dot (e.g., '.de')")
+
+    # Print summary of configuration
+    logging.info("Configuration summary:")
+    logging.info(f"  - TLD: {TLD}")
+    logging.info(f"  - Domain length range: {MIN_LENGTH} to {MAX_LENGTH}")
+    logging.info(
+        "  - Character sets: "
+        + (
+            ", ".join(
+                filter(
+                    None,
+                    [
+                        "lowercase" if USE_LOWERCASE else None,
+                        "digits" if USE_DIGITS else None,
+                        "hyphen" if USE_HYPHEN else None,
+                        f"custom ({USE_CUSTOM_CHARS})" if USE_CUSTOM_CHARS else None,
+                    ],
+                )
+            )
+        )
+    )
 
     return True
 
@@ -193,42 +211,49 @@ def main():
         characters.append(MUST_INCLUDE_SEQUENCE)
         logging.info(f"Added required sequence: {MUST_INCLUDE_SEQUENCE}")
 
-    # Generate domains
-    domains_to_check = generate_domains(
-        characters, MIN_LENGTH, MAX_LENGTH, MUST_INCLUDE_SEQUENCE
-    )
-
-    # Show summary before starting
-    logging.info(
-        f"Starting WHOIS checks for {len(domains_to_check)} domains with TLD {TLD}"
-    )
-    logging.info(f"Domain length range: {MIN_LENGTH} to {MAX_LENGTH} characters")
-    logging.info(f"Results will be saved to {RESULT_FILE}")
-
-    # Calculate estimate of total time based on number of domains
-    est_seconds_per_domain = WAIT_SECONDS * 1.5  # Rough estimate
-    est_total_time = len(domains_to_check) * est_seconds_per_domain
-    logging.info(
-        f"Estimated total time: {est_total_time / 60:.1f} minutes (this is a rough estimate)"
-    )
-
+    # Process domains in incremental length order
+    total_domains_to_check = 0
+    domains_checked = 0
     start_time = time.time()
 
+    # Open log file once for the entire process
     with open(RESULT_FILE, "w", encoding="utf-8") as log_file:
-        for index, url in enumerate(sorted(domains_to_check)):
-            check_domain(url, log_file)
+        # Process one length at a time
+        for current_length in range(MIN_LENGTH, MAX_LENGTH + 1):
+            # Generate domains for current length only
+            logging.info(f"Generating domains of length {current_length}...")
+            domains_for_current_length = generate_domains(
+                characters, current_length, current_length, MUST_INCLUDE_SEQUENCE
+            )
+            total_domains_to_check += len(domains_for_current_length)
 
-            # Show progress
-            if (index + 1) % 10 == 0:
-                elapsed = time.time() - start_time
-                rate = (index + 1) / elapsed if elapsed > 0 else 0
-                eta = (len(domains_to_check) - (index + 1)) / rate if rate > 0 else 0
+            logging.info(
+                f"Processing {len(domains_for_current_length)} domains of length {current_length}..."
+            )
 
-                logging.info(
-                    f"Progress: {index + 1}/{len(domains_to_check)} domains checked "
-                    f"({(index + 1) / len(domains_to_check) * 100:.1f}%) "
-                    f"- Rate: {rate:.2f} domains/sec - ETA: {eta / 60:.1f} minutes"
-                )
+            # Process all domains of current length
+            for index, url in enumerate(sorted(domains_for_current_length)):
+                check_domain(url, log_file)
+                domains_checked += 1
+
+                # Show progress
+                if (index + 1) % 10 == 0 or index == len(
+                    domains_for_current_length
+                ) - 1:
+                    elapsed = time.time() - start_time
+                    rate = domains_checked / elapsed if elapsed > 0 else 0
+                    remaining_domains = total_domains_to_check - domains_checked
+                    eta = remaining_domains / rate if rate > 0 else 0
+
+                    logging.info(
+                        f"Length {current_length}: {index + 1}/{len(domains_for_current_length)} domains checked "
+                        f"- Overall: {domains_checked} domains checked "
+                        f"- Rate: {rate:.2f} domains/sec - ETA: {eta / 60:.1f} minutes"
+                    )
+
+            logging.info(f"Completed all domains of length {current_length}")
+
+        logging.info(f"Total domains checked: {domains_checked}")
 
     total_time = time.time() - start_time
     logging.info(f"WHOIS check completed in {total_time / 60:.2f} minutes")
