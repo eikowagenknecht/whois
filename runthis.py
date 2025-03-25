@@ -8,7 +8,7 @@ import os
 
 # Configuration
 TLD = ".de"
-MIN_LENGTH = 1
+MIN_LENGTH = 4
 MAX_LENGTH = 5
 RESULT_FILE = "out/whoisresult.txt"
 WAIT_SECONDS = 2  # Initial wait time
@@ -16,8 +16,8 @@ MAX_RETRIES = 5  # Maximum number of retry attempts
 
 # Character set configuration (set to True to include, False to exclude)
 USE_LOWERCASE = True  # Include lowercase letters (a-z)
-USE_DIGITS = False  # Include digits (0-9)
-USE_HYPHEN = False  # Include hyphen (-)
+USE_DIGITS = True  # Include digits (0-9)
+USE_HYPHEN = True  # Include hyphen (-)
 USE_CUSTOM_CHARS = ""  # Add any additional custom characters here (IDN support)
 MUST_INCLUDE_SEQUENCE = ""  # Arbitrary string that must be in the domain name
 
@@ -108,7 +108,7 @@ def check_domain(url, log_file):
                 retries += 1
                 sys.stdout.write("\x1b[2K\r")  # Clear line
         except whois.parser.PywhoisError:
-            logging.info(f"{url} is likely unregistered.")
+            logging.info(f"{url} is likely unregistered. Adding to results...")
             print(url, file=log_file)
             log_file.flush()  # Ensure immediate write to file
             return  # Unregistered, end function
