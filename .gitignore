@@ -17,3 +17,4 @@ __pycache__/
 
 # App data
 /data/
+/out/

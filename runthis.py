@@ -15,7 +15,7 @@ kernel32.SetConsoleMode(kernel32.GetStdHandle(-11), 7)
 TLD = ".de"
 MIN_LENGTH = 1
 MAX_LENGTH = 5
-RESULT_FILE = "c:\\Temp\\whoisresult.txt"
+RESULT_FILE = "out/whoisresult.txt"
 """Where to write the results to."""
 MUST_INCLUDE_SEQUENCE = "" 
 """ Arbitrary string that must be in the domain name. Leave empty if you don't need it."""
