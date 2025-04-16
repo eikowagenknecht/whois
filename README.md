@@ -4,6 +4,8 @@
 
 This script checks all possible combinations of domain names for a given length and logs whether these are still available or not.
 
+Read more here: https://eikowagenknecht.de/posts/finding-available-domains-with-python-script/
+
 ## How to use
 
 1. (optional but recommended) Activate a Python 3 virtual environment
